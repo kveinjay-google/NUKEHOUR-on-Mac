@@ -1,0 +1,69 @@
+user.config
+engine
+.diagnostics/
+
+# Visual Studio
+Release
+bin
+obj
+*.ncb
+*.vcproj*
+*.suo
+*.user
+*.sln.cache
+*.manifest
+*.CodeAnalysisLog.xml
+*.lastcodeanalysissucceeded
+_ReSharper.*/
+/.vs
+
+# Visual Studio Code
+/.vscode/settings.json
+
+# backup files by various editors
+*~
+*.orig
+\#*
+.*.sw?
+
+# Monodevelop
+*.pidb
+*.userprefs
+
+# Mac OS X
+.DS_Store
+
+# SublimeText
+*.sublime-project
+*.sublime-workspace
+
+# NUnit
+/TestResult.xml
+/lib/
+
+# Support directory
+/Support
+
+# IntelliJ files
+.idea
+
+# Launcher-managed user AI profiles (regenerated from launcher UI)
+/launcher_ai_profiles.json
+/__pycache__/
+**/__pycache__/
+
+# Launcher runtime state
+launcher_skirmish.json
+launcher_server.json
+launcher_server.log
+
+# Public macOS repository scope
+/ios/
+/docs/superpowers/
+/docs/codebase-research/
+/docs/testing/
+/docs/performance/
+/docs/iOS_PORT_PLAN.md
+/docs/unit_editor_architecture_analysis.md
+/docs/nukehour-multiplayer-*.md
+/docs/android-device-multiplayer-checklist.md
