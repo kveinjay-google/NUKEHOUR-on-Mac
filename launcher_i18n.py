@@ -15,6 +15,7 @@ EN: dict[str, str] = {
     '请在继续前阅读以下重要信息': 'Please read this important information before continuing',
     '官方网站': 'Official Website',
     '继续': 'Continue',
+    '同意并继续': 'Agree and Continue',
     '''NUKE HOUR 是完全独立开发、完全免费且开源的软件项目。
 
 EA 未认可且不支持本产品。本项目与 EA、Apple 或 Google 不存在隶属、赞助、授权或支持关系。
@@ -119,7 +120,6 @@ Download only the official authorized version from the NUKE HOUR website. Do not
     '启动失败': 'Launch failed',
     '回放控制': 'Replay Controls',
     '回放管理': 'Replays',
-    '在线服务': 'Online Services',
     '地图管理': 'Maps',
     '垂直同步': 'VSync',
     '多人联机': 'Multiplayer',
@@ -261,7 +261,6 @@ Download only the official authorized version from the NUKE HOUR website. Do not
     '红色警戒 2': 'Red Alert 2',
     '自动（推荐）': 'Auto (Recommended)',
     '自定义 AI': 'Custom AI',
-    '获取社区新闻': 'Fetch Community News',
     '规模随机加成': 'Size Random Bonus',
     '进攻小队规模': 'Attack Squad Size',
     '进攻尝试间隔': 'Attack Attempt Interval',
@@ -284,12 +283,12 @@ Download only the official authorized version from the NUKE HOUR website. Do not
         'Classic: left select/order, right cancel; hold right and swipe to pan quickly  |  Modern: left select, right order',
     '无限制（默认）': 'Unlimited (Default)',
     '正在启动游戏…': 'Starting game…',
+    '游戏已启动': 'Game started',
+    '已返回启动器': 'Returned to launcher',
     '游戏内设置面板': 'In-Game Settings',
     '缺少 .NET': 'Missing .NET',
-    '自动检查新版本': 'Auto-Check Updates',
     '5000（默认）': '5000 (Default)',
     '○ 服务器未启动': '○ Server not running',
-    '发送匿名系统信息': 'Send Anonymous System Info',
     '新建 AI 配置': 'New AI Profile',
     '暂停菜单背景动画': 'Pause Menu Background Animation',
     '禁用系统硬件光标': 'Disable Hardware Cursor',
@@ -352,7 +351,6 @@ Download only the official authorized version from the NUKE HOUR website. Do not
     '浏览单位、动画与音频素材（引擎内置工具）': 'Browse units, animations, and audio assets (built-in engine tool)',
     '输出 perf.log（仅排查卡顿需要）': 'Write perf.log (only needed when diagnosing stutter)',
     '选「是」将强制退出旧进程并重新启动；\n': 'Choose Yes to force-quit the old process and restart;\n',
-    '帮助开发者了解硬件与系统环境，不含个人隐私': 'Helps developers understand hardware and system environment; no personal data',
     '未找到游戏启动脚本：\n{GAME_SH}': 'Game launch script not found:\n{GAME_SH}',
     '玩家地图（{len(custom)} 张）': 'Player maps ({len(custom)})',
     '端口需为 1024-65535 之间的数字': 'Port must be a number between 1024 and 65535',
@@ -439,8 +437,6 @@ Download only the official authorized version from the NUKE HOUR website. Do not
         'Customize in-game hotkeys; changes write to the config immediately.',
     '调整电脑对手的经济、生产与进攻参数，并保存为可选人格。':
         'Tune AI economy, production, and attack settings, and save as selectable personalities.',
-    '网络端口映射、在线服务、性能调试与开发者选项。':
-        'NAT port mapping, online services, performance debugging, and developer options.',
     '回放、存档、地图、素材浏览器等附加功能入口。':
         'Entry points for replays, saves, maps, asset browser, and other extras.',
     '关闭启动器。若游戏正在运行，不会强制退出游戏进程。':
@@ -525,12 +521,6 @@ Download only the official authorized version from the NUKE HOUR website. Do not
         'Modifier key required for wheel-zoom. None = zoom with the wheel alone.',
     '开房联机时尝试通过 NAT-PMP/UPnP 在路由器上自动映射端口，方便好友连入。':
         'When hosting, try NAT-PMP/UPnP so friends can connect through your router.',
-    '启动时从社区服务器拉取新闻与公告。':
-        'Fetch community news and announcements on launch.',
-    '自动检查游戏/引擎是否有新版本可更新。':
-        'Automatically check for game/engine updates.',
-    '向开发团队发送匿名硬件与系统信息，帮助改进兼容性；不含个人隐私内容。':
-        'Send anonymous hardware/OS info to the development team to improve compatibility — no personal data.',
     '游戏内叠加性能曲线图，用于排查掉帧与卡顿。':
         'Overlay a performance graph in-game to diagnose hitching.',
     '游戏内显示帧时、更新耗时等性能文字。':

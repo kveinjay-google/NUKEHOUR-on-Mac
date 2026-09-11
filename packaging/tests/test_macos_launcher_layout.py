@@ -1,3 +1,4 @@
+import inspect
 import json
 import plistlib
 import tempfile
@@ -17,22 +18,38 @@ class MacosLauncherLayoutTest(unittest.TestCase):
             layout["content"],
         )
 
-    def test_language_selector_has_an_explicit_unclipped_bottom_slot(self):
+    def test_language_switcher_fills_sidebar_above_footer(self):
         layout = launcher.launcher_shell_layout()
-        panel_x, panel_y, panel_width, panel_height = layout["language"]
-        label_x, label_y, label_width, label_height = layout["language_label"]
-        menu_x, menu_y, menu_width, menu_height = layout["language_menu"]
-        _footer_x, footer_y, _footer_width, _footer_height = layout["footer"]
+        self.assertIn("language_switcher", layout)
+        if "language_switcher" not in layout:
+            return
 
-        self.assertGreaterEqual(menu_height, 28)
-        self.assertGreaterEqual(label_height, 16)
-        self.assertEqual((panel_width, panel_width), (label_width, menu_width))
-        self.assertGreaterEqual(label_y, panel_y)
-        self.assertGreaterEqual(menu_y, label_y + label_height)
-        self.assertLessEqual(menu_y + menu_height, panel_y + panel_height)
-        self.assertLessEqual(panel_y + panel_height, footer_y)
-        self.assertGreaterEqual(panel_x, 0)
-        self.assertLessEqual(panel_x + panel_width, launcher.SIDEBAR_W)
+        x, y, width, height = layout["language_switcher"]
+        footer_x, footer_y, footer_width, _footer_height = layout["footer"]
+        self.assertEqual(x, footer_x)
+        self.assertEqual(width, footer_width)
+        self.assertEqual(y + height, footer_y - 8)
+        self.assertGreaterEqual(height, 34)
+        self.assertGreaterEqual(width, 160)
+
+        self.assertTrue(hasattr(launcher, "language_switcher_layout"))
+        if not hasattr(launcher, "language_switcher_layout"):
+            return
+        controls = launcher.language_switcher_layout(width, height)
+        self.assertEqual((0, 0, 36, height), controls["previous"])
+        self.assertEqual((width - 36, 0, 36, height), controls["next"])
+        self.assertEqual((40, 0, width - 80, height), controls["label"])
+
+    def test_language_switcher_uses_two_buttons_without_a_popup_menu(self):
+        source = inspect.getsource(launcher.Launcher._build_language_switcher)
+
+        self.assertIn('for key, glyph in (("previous", "‹"), ("next", "›")):', source)
+        self.assertEqual(1, source.count("tk.Button("))
+        self.assertIn("language_switch_label(self.effective_language)", source)
+        self.assertIn("command=self._toggle_language", source)
+        self.assertNotIn("tk.Menubutton(", source)
+        self.assertNotIn("tk.Menu(", source)
+        self.assertNotIn("System", source)
 
     def test_version_footer_is_inside_content_and_right_bottom_aligned(self):
         layout = launcher.launcher_shell_layout()
@@ -45,6 +62,15 @@ class MacosLauncherLayoutTest(unittest.TestCase):
         self.assertLessEqual(y + height, content_y + content_height)
         self.assertEqual(x + width, launcher.WIN_W - 16)
         self.assertEqual(y + height, launcher.WIN_H - 12)
+
+    def test_language_refresh_raises_existing_version_footer_above_new_content(self):
+        source = inspect.getsource(launcher.Launcher._change_language_preference)
+        lift = "self.version_label.lift()"
+
+        self.assertIn(lift, source)
+        self.assertLess(source.index("self._build_language_switcher()"), source.index(lift))
+        self.assertLess(source.index("self.show_page(current_page)"), source.index(lift))
+        self.assertNotIn("self._build_version_footer()", source)
 
     def test_version_text_uses_brand_and_product_version_without_ra2(self):
         text = launcher.launcher_version_text("1.0.3", 3)
@@ -74,16 +100,25 @@ class MacosLauncherLayoutTest(unittest.TestCase):
         self.assertIn("def _page_notice", source)
         self.assertIn("tk.Text(notice_body", source)
         self.assertIn('self._native_button(actions, "官方网站"', source)
-        self.assertIn('self._native_button(actions, "继续"', source)
+        self.assertIn('self._native_button(actions, "同意并继续"', source)
+        self.assertIn("actions.place(", source)
+        self.assertIn("notice_body.place(", source)
+        self.assertNotIn('actions.pack(side="bottom"', source)
         self.assertIn("EA 未认可且不支持本产品", source)
         self.assertIn("完全免费开源", source)
         self.assertIn("合法购买并拥有的正版游戏副本", source)
         self.assertIn("官方授权版本", source)
         self.assertIn("恶意代码", source)
         self.assertIn("EA has not endorsed and does not support this product.", translations)
-        actions_pack = source.index('actions.pack(side="bottom"')
-        notice_pack = source.index('notice_body.pack(fill="both"')
-        self.assertLess(actions_pack, notice_pack)
+        self.assertTrue(hasattr(launcher, "notice_page_layout"))
+        if not hasattr(launcher, "notice_page_layout"):
+            return
+        layout = launcher.notice_page_layout()
+        body_x, body_y, body_width, body_height = layout["body"]
+        actions_x, actions_y, actions_width, actions_height = layout["actions"]
+        self.assertEqual((body_x, body_width), (actions_x, actions_width))
+        self.assertLessEqual(body_y + body_height, actions_y - 12)
+        self.assertLessEqual(actions_y + actions_height, launcher.WIN_H - 36)
 
     def test_startup_notice_brand_names_are_linked_to_the_official_website(self):
         self.assertTrue(hasattr(launcher, "notice_brand_link_spans"))
@@ -109,9 +144,10 @@ class MacosLauncherLayoutTest(unittest.TestCase):
         self.assertIn("def _control_surface", source)
         self.assertIn("image=base_image", source)
         self.assertIn('compound="center"', source)
-        self.assertIn("tk.Menubutton(", source)
-        self.assertIn("indicatoron=False", source)
+        self.assertIn("tk.Button(", source)
+        self.assertIn("takefocus=True", source)
         self.assertIn("font=FONT_LABEL", source)
+        self.assertIn("def _build_language_switcher", source)
         self.assertNotIn("language_menu = tk.OptionMenu(", source)
 
     @mock.patch("launcher.webbrowser.open_new_tab", return_value=True)

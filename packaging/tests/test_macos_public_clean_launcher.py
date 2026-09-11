@@ -7,6 +7,28 @@ import launcher
 
 
 class MacOSPublicCleanLauncherTest(unittest.TestCase):
+    def test_launcher_marks_engine_content_cancel_as_return_to_launcher(self):
+        self.assertEqual(
+            ["Game.ContentManagerReturnToLauncher=true"],
+            launcher.with_content_manager_return_policy([]),
+        )
+
+    def test_game_process_exit_restores_launcher_home(self):
+        target = object.__new__(launcher.Launcher)
+        target._game_process = mock.Mock()
+        target._game_process.poll.return_value = 0
+        target.deiconify = mock.Mock()
+        target.lift = mock.Mock()
+        target.focus_force = mock.Mock()
+        target.show_page = mock.Mock()
+        target._set_launch_status = mock.Mock()
+
+        target._watch_game_process()
+
+        target.deiconify.assert_called_once()
+        target.show_page.assert_called_once_with("home")
+        target._set_launch_status.assert_called_once()
+
     def test_build_pages_defers_skirmish_until_first_navigation(self):
         target = object.__new__(launcher.Launcher)
         target.content = object()

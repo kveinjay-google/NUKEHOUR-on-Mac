@@ -113,7 +113,34 @@ def _public_clean_mod(data):
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
-TRANSFORMS = {"public-clean-mod": _public_clean_mod}
+def _public_clean_cursors(data):
+    text = data.decode("utf-8")
+    marker = "\n\tundeploy.shp: mouse\n"
+    head, separator, tail = text.partition(marker)
+    if not separator or "\n\tassaultmove.shp: mouse\n" not in tail:
+        raise ValueError("unexpected RA2 cursor layout")
+
+    retail_aliases = (
+        "\n\t\tundeploy:\n"
+        "\t\t\tStart: 120\n"
+        "\t\t\tLength: 9\n"
+        "\t\tassaultmove:\n"
+        "\t\t\tStart: 404\n"
+        "\t\t\tLength: 9\n"
+        "\t\tassaultmove-minimap:\n"
+        "\t\t\tStart: 434\n"
+        "\t\tassaultmove-blocked:\n"
+        "\t\t\tStart: 384\n"
+        "\t\tassaultmove-blocked-minimap:\n"
+        "\t\t\tStart: 384\n"
+    )
+    return (head + retail_aliases).encode("utf-8")
+
+
+TRANSFORMS = {
+    "public-clean-cursors": _public_clean_cursors,
+    "public-clean-mod": _public_clean_mod,
+}
 
 
 def stage_public_runtime(root, destination, manifest):
@@ -283,7 +310,12 @@ def build_game_app(root, runtime, version, build):
 
 def _copy_engine_bin(root, runtime):
     source = Path(root) / "engine/bin"
-    required = ("OpenRA.dll", "OpenRA.Mods.RA2.dll", "OpenRA.Platforms.Default.dll")
+    required = (
+        "OpenRA.dll",
+        "OpenRA.Mods.RA2.dll",
+        "OpenRA.Platforms.Default.dll",
+        "global mix database.dat",
+    )
     missing = [name for name in required if not (source / name).is_file()]
     if missing:
         raise RuntimeError("missing built OpenRA files: " + ", ".join(missing))
@@ -292,6 +324,10 @@ def _copy_engine_bin(root, runtime):
         Path(runtime) / "engine/bin",
         symlinks=True,
         ignore=lambda _directory, names: {"mods"} if "mods" in names else set(),
+    )
+    shutil.copy2(
+        source / "global mix database.dat",
+        Path(runtime) / "engine/global mix database.dat",
     )
 
 

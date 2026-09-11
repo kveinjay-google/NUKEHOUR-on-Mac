@@ -24,6 +24,7 @@ jobs:
       - name: Verify public macOS source
         run: |
           python3 -m unittest \
+            packaging.tests.test_background_network_launcher \
             packaging.tests.test_macos_launcher_layout \
             packaging.tests.test_macos_public_clean_launcher \
             packaging.tests.test_launcher_language \

@@ -1045,10 +1045,13 @@
     {
       "source": "mods/ra2/cursors.yaml",
       "destination": "mods/ra2/cursors.yaml",
-      "size": 4385,
-      "sha256": "1a0e96910c9c0d4740b0872352b1ff3196bb42fa1f6695580998175a4c28ab0b",
+      "size": 4323,
+      "sha256": "9714e17e1c81d48f50502d49afde4b2baa34dffa58d681b2382d179e7df98bac",
       "category": "project-original",
-      "license": "GPL-3.0-only / NUKE HOUR project"
+      "license": "GPL-3.0-only / NUKE HOUR project",
+      "transform": "public-clean-cursors",
+      "sourceSize": 4385,
+      "sourceSha256": "1a0e96910c9c0d4740b0872352b1ff3196bb42fa1f6695580998175a4c28ab0b"
     },
     {
       "source": "mods/ra2/fluent/assetbrowser.ftl",

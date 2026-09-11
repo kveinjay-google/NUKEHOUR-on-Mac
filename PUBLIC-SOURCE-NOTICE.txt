@@ -1,5 +1,5 @@
 NUKE HOUR 1.0.3 public source export
-Source commit: eae39b92f8144cadaa39a7d8d1d95cb4105625fa
+Source commit: 7730020ca7b38feea0ca42db38cfa11c21fbb20c
 
 This export contains the GPL source, replayable engine patch series, build scripts, and only reviewed redistributable assets.
 Retail game files, built-in gameplay maps, reference artwork, private development assets, credentials, and build outputs are excluded.
@@ -10,7 +10,7 @@ Verified public-source workflow on Apple Silicon macOS:
 
   ./fetch-engine.sh
   DOTNET_ROLL_FORWARD=Major make RUNTIME=net6 TARGETPLATFORM=osx-arm64 CONFIGURATION=Release all
-  python3 -m unittest packaging.tests.test_macos_launcher_layout packaging.tests.test_macos_public_clean_launcher packaging.tests.test_launcher_language -q
+  python3 -m unittest packaging.tests.test_background_network_launcher packaging.tests.test_macos_launcher_layout packaging.tests.test_macos_public_clean_launcher packaging.tests.test_launcher_language -q
   packaging/macos/build-public-clean.sh --output artifacts/public-macos
 
 The complete private-development QA suite also references intentionally excluded

@@ -21,6 +21,7 @@ RETAIL_EXTENSIONS = frozenset({
 })
 MAP_EXTENSIONS = frozenset({".map", ".mpr", ".oramap", ".yrm"})
 GENERATED_PREFIXES = ("engine/bin/", "dotnet/", "NUKE HOUR GAME.app/")
+GENERATED_FILES = frozenset({"engine/global mix database.dat"})
 FORBIDDEN_COMPONENTS = frozenset({
     ".git", "__pycache__", "Content", "Logs", "Replays", "Saves", "maps",
 })
@@ -90,7 +91,8 @@ def _manifest_entries(manifest):
 
 
 def _is_generated(relative):
-    return any(relative.startswith(prefix) for prefix in GENERATED_PREFIXES)
+    return relative in GENERATED_FILES or any(
+        relative.startswith(prefix) for prefix in GENERATED_PREFIXES)
 
 
 def audit_runtime(root, manifest):

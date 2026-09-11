@@ -45,6 +45,14 @@ class MacOSPublicCleanAuditTest(unittest.TestCase):
 
         self.assertTrue(result.passed, result.errors)
 
+    def test_runtime_accepts_generated_engine_mix_filename_index(self):
+        self.write("engine/global mix database.dat", b"filename-index")
+
+        result = audit.audit_runtime(
+            self.root, {"schemaVersion": 1, "files": []})
+
+        self.assertTrue(result.passed, result.errors)
+
     def test_runtime_rejects_retail_maps_unlisted_files_and_unsafe_symlinks(self):
         self.write("mods/ra2/private.mix", b"retail")
         self.write("mods/ra2/maps/builtin.oramap", b"map")

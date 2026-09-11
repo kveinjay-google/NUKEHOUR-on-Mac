@@ -99,6 +99,44 @@ class MacOSPublicCleanBuilderTest(unittest.TestCase):
             self.assertEqual("engine/bin/OpenRA.dll", sbom["files"][0]["path"])
             self.assertEqual(hashlib.sha256(b"engine").hexdigest(), sbom["files"][0]["sha256"])
 
+    def test_engine_binary_copy_places_mix_database_at_runtime_engine_root(self):
+        with tempfile.TemporaryDirectory(prefix="nukehour-engine-copy-test-") as temporary:
+            root = Path(temporary) / "source"
+            runtime = Path(temporary) / "runtime"
+            (root / "engine/bin").mkdir(parents=True)
+            for name in ("OpenRA.dll", "OpenRA.Mods.RA2.dll", "OpenRA.Platforms.Default.dll"):
+                (root / "engine/bin" / name).write_bytes(b"engine")
+            (root / "engine/bin/global mix database.dat").write_bytes(b"filename-index")
+
+            builder._copy_engine_bin(root, runtime)
+
+            self.assertEqual(
+                b"filename-index",
+                (runtime / "engine/global mix database.dat").read_bytes(),
+            )
+
+    def test_public_clean_cursors_reuse_user_supplied_retail_mouse_sheet(self):
+        source = (
+            "Cursors:\n"
+            "\tmouse.shp: mouse\n"
+            "\t\tattackmove:\n"
+            "\t\t\tStart: 404\n"
+            "\tundeploy.shp: mouse\n"
+            "\t\tundeploy:\n"
+            "\t\t\tStart: 0\n"
+            "\tassaultmove.shp: mouse\n"
+            "\t\tassaultmove:\n"
+            "\t\t\tStart: 0\n"
+        ).encode()
+
+        result = builder._public_clean_cursors(source).decode()
+
+        self.assertNotIn("undeploy.shp", result)
+        self.assertNotIn("assaultmove.shp", result)
+        self.assertIn("\t\tundeploy:\n\t\t\tStart: 120", result)
+        self.assertIn("\t\tassaultmove:\n\t\t\tStart: 404", result)
+        self.assertIn("\t\tassaultmove-blocked:\n\t\t\tStart: 384", result)
+
     def test_pyinstaller_command_is_arm64_windowed_and_branded(self):
         command = builder.pyinstaller_command(
             Path("/tools/pyinstaller"), ROOT, Path("/tmp/work"))

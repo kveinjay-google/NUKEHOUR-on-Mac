@@ -119,6 +119,11 @@ def initial_page(requested, content_ready):
     return requested if content_ready else "content"
 
 
+def with_content_manager_return_policy(args):
+    """Mark content-manager cancellation as a return to this launcher."""
+    return [*args, "Game.ContentManagerReturnToLauncher=true"]
+
+
 def startup_page():
     return "notice"
 
@@ -299,32 +304,17 @@ def launcher_shell_layout(width=WIN_W, height=WIN_H, sidebar_width=SIDEBAR_W):
     side_padding = 12
     footer_height = 18
     footer_bottom = 10
-    language_label_height = 18
-    language_menu_height = 30
-    language_height = language_label_height + language_menu_height
     footer_y = height - footer_bottom - footer_height
-    language_y = footer_y - 8 - language_height
     control_width = sidebar_width - side_padding * 2
+    language_height = 34
 
     return {
         "content": (sidebar_width, 0, width - sidebar_width, height),
-        "language": (
+        "language_switcher": (
             side_padding,
-            language_y,
+            footer_y - 8 - language_height,
             control_width,
             language_height,
-        ),
-        "language_label": (
-            side_padding,
-            language_y,
-            control_width,
-            language_label_height,
-        ),
-        "language_menu": (
-            side_padding,
-            language_y + language_label_height,
-            control_width,
-            language_menu_height,
         ),
         "footer": (
             side_padding,
@@ -339,6 +329,42 @@ def launcher_shell_layout(width=WIN_W, height=WIN_H, sidebar_width=SIDEBAR_W):
             18,
         ),
     }
+
+
+def notice_page_layout(width=WIN_W - SIDEBAR_W, height=WIN_H):
+    """Return fixed notice rectangles that remain above the version footer."""
+    padding = 30
+    actions_height = 48
+    actions_y = height - 90
+    body_y = 123
+    body_bottom = actions_y - 14
+    return {
+        "title": (padding, 28, width - 2 * padding - 72, 47),
+        "subtitle": (padding, 83, width - 2 * padding - 72, 28),
+        "body": (padding, body_y, width - 2 * padding, body_bottom - body_y),
+        "actions": (padding, actions_y, width - 2 * padding, actions_height),
+    }
+
+
+def language_switcher_layout(width, height):
+    """Return the deterministic rectangles for bilingual switcher controls."""
+    arrow_width = 36
+    gap = 4
+    return {
+        "previous": (0, 0, arrow_width, height),
+        "label": (arrow_width + gap, 0, width - 2 * (arrow_width + gap), height),
+        "next": (width - arrow_width, 0, arrow_width, height),
+    }
+
+
+def language_switch_target(effective_language):
+    """Return the other supported language for the visible toggle."""
+    return "en" if str(effective_language).lower().startswith("zh") else "zh-CN"
+
+
+def language_switch_label(effective_language):
+    """Return the bilingual label for the effective launcher language."""
+    return "简体中文" if str(effective_language).lower().startswith("zh") else "English"
 
 
 def launcher_product_version(root=REPO):
@@ -390,7 +416,7 @@ DEFAULTS = {
         "UseClassicMouseStyle": "False", "MouseScroll": "Joystick",
         "UseAlternateScrollButton": "False", "ViewportEdgeScroll": "True",
         "ViewportEdgeScrollStep": "30", "ZoomSpeed": "0.04", "ZoomModifier": "None",
-        "UIScrollSpeed": "50", "LockMouseWindow": "False", "FetchNews": "True",
+        "UIScrollSpeed": "50", "LockMouseWindow": "False",
     },
     "Sound": {
         "Mute": "False", "SoundVolume": "0.5", "MusicVolume": "0.5", "VideoVolume": "0.5",
@@ -398,12 +424,54 @@ DEFAULTS = {
     },
     "Server": {"DiscoverNatDevices": "False"},
     "Debug": {
-        "CheckVersion": "True", "SendSystemInformation": "True",
         "PerfGraph": "False", "PerfText": "False", "DisplayDeveloperSettings": "False",
         "BotDebug": "False", "LuaDebug": "False",
         "EnableDebugCommandsInReplays": "False", "EnableSimulationPerfLogging": "False",
     },
 }
+
+RETIRED_LAUNCHER_SETTINGS = {
+    "Game": frozenset({"FetchNews"}),
+    "Debug": frozenset({"CheckVersion", "SendSystemInformation"}),
+}
+
+# These command-line overrides apply only to processes started by the macOS
+# launcher. They leave the shared iOS and Android runtime behavior unchanged.
+MAC_BACKGROUND_NETWORK_OVERRIDES = (
+    "Game.FetchNews=False",
+    "Debug.CheckVersion=False",
+    "Debug.SendSystemInformation=False",
+    "Game.AllowDownloading=False",
+    "Game.AuthProfile=.",
+    "Server.QueryMapRepository=False",
+)
+
+
+def sanitize_mac_child_environment(environment):
+    """Remove third-party store credentials from macOS game processes."""
+    child = dict(environment)
+    child.pop("ITCHIO_API_KEY", None)
+    return child
+
+
+def strip_retired_launcher_settings(lines):
+    """Remove retired background-service keys from their original sections only."""
+    out = []
+    section = None
+    for line in lines:
+        is_section = (
+            bool(line.strip())
+            and not line.startswith((" ", "\t"))
+            and line.rstrip().endswith(":")
+        )
+        if is_section:
+            section = line.rstrip()[:-1].strip()
+        elif section in RETIRED_LAUNCHER_SETTINGS and ":" in line:
+            key, _separator, _value = line.strip().partition(":")
+            if key.strip() in RETIRED_LAUNCHER_SETTINGS[section]:
+                continue
+        out.append(line)
+    return out
 
 
 def persist_language_preference(preference, settings_file=None):
@@ -456,6 +524,8 @@ def persist_language_preference(preference, settings_file=None):
     else:
         lines.insert(next_section, f"\tLanguage: {preference}")
 
+    lines = strip_retired_launcher_settings(lines)
+
     parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
@@ -488,7 +558,9 @@ def load_settings():
                 stripped = line.strip()
                 if section in data and ":" in stripped:
                     key, _, val = stripped.partition(":")
-                    data[section][key.strip()] = val.strip()
+                    key = key.strip()
+                    if key not in RETIRED_LAUNCHER_SETTINGS.get(section, ()):
+                        data[section][key] = val.strip()
     except OSError:
         pass
     data["Player"]["Name"] = migrate_legacy_player_name(
@@ -901,6 +973,8 @@ def save_user_keys(bindings):
         if not skip_children or top:
             out.append(line)
 
+    out = strip_retired_launcher_settings(out)
+
     if bindings:
         out.append("Keys:")
         for name in sorted(bindings):
@@ -957,6 +1031,7 @@ class Launcher(tk.Tk):
 
         self.pages = {}
         self._build_pages()
+        self._build_language_switcher()
         self._build_version_footer()
         start_page = "home"
         if "-p" in sys.argv:
@@ -991,7 +1066,6 @@ class Launcher(tk.Tk):
         v("video_mode_label", enum_value(localized_options(VIDEO_MODES), gfx.get("Mode")))
         v("window_size", gfx.get("WindowedSize", "1024,768"))
         v("ui_scale_label", enum_value(localized_options(UI_SCALES), gfx.get("UIScale")))
-        v("language_label", enum_value(localized_options(LANGUAGES), self.language_preference))
         v("vsync", gfx.get("VSync"))
         v("cap_game_fps", gfx.get("CapFramerateToGameFps"))
         v("cursor_label", enum_value(localized_options(CURSOR_SIZES), gfx.get("CursorDouble")))
@@ -1026,9 +1100,6 @@ class Launcher(tk.Tk):
         v("lock_mouse", g.get("LockMouseWindow"))
 
         v("nat_discovery", srv.get("DiscoverNatDevices"))
-        v("fetch_news", g.get("FetchNews"))
-        v("check_version", dbg.get("CheckVersion"))
-        v("send_sysinfo", dbg.get("SendSystemInformation"))
         v("perf_graph", dbg.get("PerfGraph"))
         v("perf_text", dbg.get("PerfText"))
         v("dev_settings", dbg.get("DisplayDeveloperSettings"))
@@ -1043,7 +1114,6 @@ class Launcher(tk.Tk):
         return {
             "video_mode_label": VIDEO_MODES,
             "ui_scale_label": UI_SCALES,
-            "language_label": LANGUAGES,
             "cursor_label": CURSOR_SIZES,
             "gl_label": GL_PROFILES,
             "viewport_label": VIEWPORTS,
@@ -1187,12 +1257,17 @@ class Launcher(tk.Tk):
                 entry.insert(0, value)
             self.net_name_is_default = network["name_is_default"]
 
-    def _change_language(self, selected_label):
-        preference = option_value(
-            localized_options(LANGUAGES, self.effective_language),
-            selected_label,
-        )
+    def _toggle_language(self):
+        try:
+            self._change_language_preference(
+                language_switch_target(self.effective_language))
+        except Exception as exc:
+            messagebox.showerror(_tr("操作失败"), str(exc), parent=self)
+
+    def _change_language_preference(self, preference):
         preference = i18n.normalize_preference(preference)
+        if preference == "System":
+            raise ValueError("The visible language switcher requires an explicit language")
         if preference == self.language_preference:
             return
 
@@ -1217,6 +1292,7 @@ class Launcher(tk.Tk):
 
         self.sidebar.destroy()
         self.content.destroy()
+        self.language_switcher.destroy()
         self.title(f"{BRAND_NAME}{_tr(' · 启动中枢')}")
         self._build_sidebar()
         self.content = tk.Frame(self, bg=PANEL)
@@ -1230,10 +1306,12 @@ class Launcher(tk.Tk):
         )
         self.pages = {}
         self._build_pages()
+        self._build_language_switcher()
         if state.get("skirmish"):
             self._ensure_page_built("skirmish")
         self._restore_ui_state(state)
         self.show_page(current_page)
+        self.version_label.lift()
 
     # ------------------------------------------------------------ 背景与侧栏
 
@@ -1301,84 +1379,55 @@ class Launcher(tk.Tk):
             height=footer_height,
         )
 
-        language = tk.Frame(bar, bg=BG)
-        language_x, language_y, language_width, language_height = layout["language"]
-        language.place(
-            x=language_x,
-            y=language_y,
-            width=language_width,
-            height=language_height,
-        )
-        label_x, label_y, label_width, label_height = layout["language_label"]
-        tk.Label(
-            language,
-            text=_tr("界面语言"),
-            font=FONT_SMALL,
-            bg=BG,
-            fg=DIM,
-            anchor="w",
-        ).place(
-            x=label_x - language_x,
-            y=label_y - language_y,
-            width=label_width,
-            height=label_height,
-        )
-        labels = [label for label, _value in localized_options(LANGUAGES)]
-        language_display = tk.StringVar(
-            value=f"{self.vars['language_label'].get()}  ▾")
-        menu_x, menu_y, menu_width, menu_height = layout["language_menu"]
-        language_base = self._control_surface(
-            menu_width - 2, menu_height - 2, "#292b33", "#666977")
-        language_hover = self._control_surface(
-            menu_width - 2, menu_height - 2, "#393c46", GOLD)
-        language_menu = tk.Menubutton(
-            language,
-            textvariable=language_display,
-            image=language_base,
-            compound="center",
-            font=FONT_LABEL,
-            bg=BG,
-            fg="#f7f7fa",
-            activebackground=BG,
-            activeforeground="white",
-            highlightthickness=0,
-            bd=0,
-            relief="flat",
-            indicatoron=False,
-            cursor="hand2",
-            takefocus=True,
-        )
-        language_popup = tk.Menu(
-            language_menu,
-            tearoff=False,
-            bg=BTN,
-            fg=FG,
-            activebackground=ACCENT,
-            activeforeground="white",
-            font=FONT_LABEL,
-        )
+    def _build_language_switcher(self):
+        layout = launcher_shell_layout()
+        x, y, width, height = layout["language_switcher"]
+        controls = language_switcher_layout(width, height)
+        frame = tk.Frame(self, bg=BG)
+        self.language_switcher = frame
+        frame.place(x=x, y=y, width=width, height=height)
 
-        def choose_language(label):
-            self.vars["language_label"].set(label)
-            language_display.set(f"{label}  ▾")
-            self._change_language(label)
-
-        for label in labels:
-            language_popup.add_command(
-                label=label,
-                command=lambda value=label: choose_language(value),
+        button_base = self._control_surface(34, height - 2, "#292b33", "#666977")
+        button_hover = self._control_surface(34, height - 2, "#393c46", GOLD)
+        for key, glyph in (("previous", "‹"), ("next", "›")):
+            bx, by, bw, bh = controls[key]
+            button = tk.Button(
+                frame,
+                text=glyph,
+                command=self._toggle_language,
+                image=button_base,
+                compound="center",
+                font=("PingFang SC", 17, "bold"),
+                bg=BG,
+                fg="#f7f7fa",
+                activebackground=BG,
+                activeforeground="white",
+                relief="flat",
+                bd=0,
+                highlightthickness=1,
+                highlightbackground=BG,
+                highlightcolor=GOLD,
+                cursor="hand2",
+                takefocus=True,
             )
-        language_menu.config(menu=language_popup)
-        language_menu.bind(
-            "<Enter>", lambda _e: language_menu.config(image=language_hover))
-        language_menu.bind(
-            "<Leave>", lambda _e: language_menu.config(image=language_base))
-        language_menu.place(
-            x=menu_x - language_x,
-            y=menu_y - language_y,
-            width=menu_width,
-            height=menu_height,
-        )
+            button.bind("<Enter>", lambda _event, widget=button: widget.config(image=button_hover))
+            button.bind("<Leave>", lambda _event, widget=button: widget.config(image=button_base))
+            button.place(x=bx, y=by, width=bw, height=bh)
+
+        lx, ly, lw, lh = controls["label"]
+        label_surface = self._control_surface(
+            lw - 2, lh - 2, "#22242b", "#50535f")
+        tk.Label(
+            frame,
+            text=language_switch_label(self.effective_language),
+            image=label_surface,
+            compound="center",
+            font=("PingFang SC", 11, "bold"),
+            bg=BG,
+            fg=FG,
+            anchor="center",
+        ).place(x=lx, y=ly, width=lw, height=lh)
+        frame.lift()
 
     def _open_brand_website(self, _event=None):
         try:
@@ -1620,31 +1669,48 @@ class Launcher(tk.Tk):
     # ------------------------------------------------------------ 页面：声明 / 开始
 
     def _page_notice(self, page):
+        layout = notice_page_layout()
+        title_x, title_y, title_width, title_height = layout["title"]
         tk.Label(
             page,
             text=_tr(STARTUP_NOTICE_TITLE),
             font=("PingFang SC", 22, "bold"),
             bg=PANEL,
             fg=FG,
-        ).pack(anchor="w", padx=30, pady=(28, 8))
+            anchor="w",
+        ).place(x=title_x, y=title_y, width=title_width, height=title_height)
 
+        subtitle_x, subtitle_y, subtitle_width, subtitle_height = layout["subtitle"]
         tk.Label(
             page,
             text=_tr("请在继续前阅读以下重要信息"),
             font=FONT_LABEL,
             bg=PANEL,
             fg=GOLD,
-        ).pack(anchor="w", padx=30, pady=(0, 12))
+            anchor="w",
+        ).place(
+            x=subtitle_x,
+            y=subtitle_y,
+            width=subtitle_width,
+            height=subtitle_height,
+        )
 
         actions = tk.Frame(page, bg=PANEL)
-        actions.pack(side="bottom", fill="x", padx=30, pady=(0, 42))
+        actions_x, actions_y, actions_width, actions_height = layout["actions"]
+        actions.place(
+            x=actions_x,
+            y=actions_y,
+            width=actions_width,
+            height=actions_height,
+        )
         self._native_button(actions, "官方网站", self._open_brand_website).pack(side="left")
-        self._native_button(actions, "继续", self._accept_startup_notice,
+        self._native_button(actions, "同意并继续", self._accept_startup_notice,
                             accent=True).pack(side="right")
 
         notice_body = tk.Frame(page, bg=CARD, highlightbackground=CARD_EDGE,
                                highlightthickness=1)
-        notice_body.pack(fill="both", expand=True, padx=30, pady=(0, 14))
+        body_x, body_y, body_width, body_height = layout["body"]
+        notice_body.place(x=body_x, y=body_y, width=body_width, height=body_height)
         scrollbar = tk.Scrollbar(notice_body, orient="vertical")
         copy = tk.Text(notice_body, wrap="word", font=FONT_LABEL, bg=CARD, fg=FG,
                        bd=0, highlightthickness=0, padx=18, pady=16,
@@ -2174,13 +2240,6 @@ class Launcher(tk.Tk):
         self._check(net, "启用 NAT-PMP / UPnP 端口映射", "nat_discovery",
                     "联机开房时自动在路由器上打开端口")
         tk.Frame(net, bg=CARD, height=6).pack()
-
-        online = self._card(page, "在线服务")
-        self._check(online, "获取社区新闻", "fetch_news")
-        self._check(online, "自动检查新版本", "check_version")
-        self._check(online, "发送匿名系统信息", "send_sysinfo",
-                    "帮助开发者了解硬件与系统环境，不含个人隐私")
-        tk.Frame(online, bg=CARD, height=6).pack()
 
         perf = self._card(page, "性能调试")
         self._check(perf, "显示性能图表", "perf_graph")
@@ -2953,12 +3012,13 @@ class Launcher(tk.Tk):
             messagebox.showerror(_tr("端口无效"), _tr("端口需为 1024-65535 之间的数字"))
             return
 
-        env = dict(os.environ)
+        env = sanitize_mac_child_environment(os.environ)
         env.setdefault("DOTNET_ROLL_FORWARD", "Major")
         env["MOD_SEARCH_PATHS"] = MAC_MOD_SEARCH_PATHS
         args = [dotnet, "bin/OpenRA.Server.dll", "Engine.EngineDir=..", "Game.Mod=ra2",
                 f"Server.Name={name}", f"Server.ListenPort={port}",
                 "Server.AdvertiseOnline=False", "Server.RequireAuthentication=False",
+                "Server.QueryMapRepository=False",
                 "Server.EnableSingleplayer=True", "Server.EnableLintChecks=False",
                 f"Engine.SupportDir={ra2_files.SUPPORT}"]
         try:
@@ -3069,6 +3129,7 @@ class Launcher(tk.Tk):
             ui_scale = self._auto_ui_scale()
 
         args = [
+            *MAC_BACKGROUND_NETWORK_OVERRIDES,
             f"Player.Name={name}",
             f"Player.Color={get('player_color')}",
             *language_launch_args(self.language_preference, self.system_language_tag),
@@ -3111,9 +3172,6 @@ class Launcher(tk.Tk):
             f"Game.ZoomModifier={option_value(localized_options(ZOOM_MODIFIERS), get('zoom_modifier_label'))}",
             f"Game.LockMouseWindow={get('lock_mouse')}",
             f"Server.DiscoverNatDevices={get('nat_discovery')}",
-            f"Game.FetchNews={get('fetch_news')}",
-            f"Debug.CheckVersion={get('check_version')}",
-            f"Debug.SendSystemInformation={get('send_sysinfo')}",
             f"Debug.PerfGraph={get('perf_graph')}",
             f"Debug.PerfText={get('perf_text')}",
         ]
@@ -3121,7 +3179,7 @@ class Launcher(tk.Tk):
         mode = launch_into if launch_into else get("mode")
         if mode and mode != "menu":
             args.append(f"Game.LaunchInto={mode}")
-        return args
+        return with_content_manager_return_policy(args)
 
     def game_pids(self):
         """Return PIDs of a running RA2 game (apphost or legacy dotnet launch)."""
@@ -3225,7 +3283,7 @@ class Launcher(tk.Tk):
                 self.update()
 
         args = self.build_args(launch_into)
-        env = dict(os.environ)
+        env = sanitize_mac_child_environment(os.environ)
         env.setdefault("DOTNET_ROLL_FORWARD", "Major")
         # GUI-launched apps inherit a minimal PATH; ensure the official .NET
         # install and Homebrew are visible to launch-game.sh.
@@ -3269,16 +3327,30 @@ class Launcher(tk.Tk):
                 logf.flush()
                 # cwd=engine so Engine.EngineDir=.. and ./mods resolve like launch-game.sh
                 cwd = os.path.join(REPO, "engine") if cmd[0] != "bash" else REPO
-                subprocess.Popen(cmd, cwd=cwd,
-                                 stdout=logf, stderr=subprocess.STDOUT,
-                                 start_new_session=True, env=env)
+                self._game_process = subprocess.Popen(
+                    cmd, cwd=cwd, stdout=logf, stderr=subprocess.STDOUT,
+                    start_new_session=True, env=env)
         except OSError as exc:
             self._set_launch_status(_trf("启动失败：{exc}", exc=exc), error=True)
             messagebox.showerror(_tr("启动失败"), str(exc), parent=self)
             return
 
-        self._set_launch_status(_tr("游戏已启动，窗口即将关闭…"))
-        self.after(800, self.destroy)
+        self._set_launch_status(_tr("游戏已启动"))
+        self.withdraw()
+        self.after(500, self._watch_game_process)
+
+    def _watch_game_process(self):
+        process = getattr(self, "_game_process", None)
+        if process is not None and process.poll() is None:
+            self.after(500, self._watch_game_process)
+            return
+
+        self._game_process = None
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        self.show_page("home")
+        self._set_launch_status(_tr("已返回启动器"))
 
 
 def main():

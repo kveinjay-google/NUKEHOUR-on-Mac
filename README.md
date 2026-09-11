@@ -18,13 +18,19 @@ from this repository or the [official NUKE HOUR website](https://nukehour.com).
 
 - Version: **1.0.3 (Build 3)**
 - Platform: **Apple Silicon macOS 12 or later**
-- Distribution: **source code only**
-- Source provenance: `eae39b92f8144cadaa39a7d8d1d95cb4105625fa`
+- Distribution: **Developer ID signed PublicClean DMG and source code**
+- Source provenance: `7730020ca7b38feea0ca42db38cfa11c21fbb20c`
 
 The public-clean application package has passed the repository's resource
-audit, clean-install gate, and launcher verification. A binary DMG is not
-published here yet because the current build has not completed Apple
-notarization.
+audit, clean-install gate, launcher verification, and Developer ID signature
+verification. The current DMG has not completed Apple notarization, so macOS
+may require users to control-click the app and choose Open on first launch.
+
+## Download
+
+Download the audited macOS installer from the
+[latest GitHub release](https://github.com/kveinjay-google/NUKEHOUR-on-Mac/releases/latest)
+or the [official NUKE HOUR website](https://nukehour.com/downloads.html).
 
 ## What is included
 
@@ -35,7 +41,10 @@ notarization.
 - Automated launcher, packaging, and resource-audit tests
 
 No retail maps, MIX archives, SHP/VXL assets, audio, video, credentials, or
-private development artifacts are included.
+private development artifacts are included. Community news, automatic update
+checks, anonymous system-information reporting, and legacy OpenRA public
+services are disabled by the macOS launcher; Local Multiplayer and the
+NUKE HOUR online lobby remain available.
 
 ## Build from source
 
